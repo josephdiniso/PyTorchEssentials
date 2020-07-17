@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
 import time
+import argparse
+import logging
+import random
 
 import cv2
 import matplotlib.pyplot as plt
@@ -12,6 +15,13 @@ import torch.nn.functional as F
 
 from mnist_net import Net
 
+logger = logging.getLogger('training')
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch = logging.StreamHandler()
+ch.setFormatter(formatter)
+ch.setLevel(logging.INFO)
+logger.addHandler(ch)
 
 def show_image(img):
     """
@@ -39,18 +49,25 @@ def plot_example(example_data: torch.tensor, example_targets: torch.tensor):
     fig
 
 class TrainNet:
-    def __init__(self):
-        self.n_epochs = 1
+    def __init__(self, model_path, optim_path, epochs, **kwargs):
+        self.n_epochs = epochs
         self.batch_size_train = 64
         self.batch_size_test = 1000
         self.learning_rate = 0.01
         self.momentum = 0.5
         self.log_interval = 10
+
         self.network = Net()
         self.optimizer = optim.SGD(self.network.parameters(), lr=self.learning_rate, momentum=self.momentum)
         # PyTorch accumulates gradients by default
         self.optimizer.zero_grad()
 
+        if model_path and optim_path:
+            logger.info("Using pretrained model")
+            model_dict = torch.load(model_path)
+            self.network.load_state_dict(model_dict)
+            optim_dict = torch.load(optim_path)
+            self.optimizer.load_state_dict(optim_dict)
 
 
         # Uses GPU hardware acceleration if applicable
@@ -81,6 +98,18 @@ class TrainNet:
                                     ])),
         batch_size=self.batch_size_test, shuffle=True, num_workers=2)
 
+        test = enumerate(self.test_loader)
+        with torch.no_grad():
+            test_data = next(test)[1][0]
+            output = self.network(test_data)
+            rand_val = random.randint(0,1000)
+            print(output[rand_val].max(dim=0).indices.item())
+            img = test_data[rand_val].numpy().squeeze()
+            cv2.imshow("img", img)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+            
+        exit()
     def train(self, epoch):
         train_losses = []
         train_counter = []
@@ -103,7 +132,6 @@ class TrainNet:
 
 
     def test(self):
-
         test_losses = []
         test_counter = [i*len(self.train_loader.dataset) for i in range(self.n_epochs+1)]
         self.network.eval()
@@ -130,9 +158,17 @@ class TrainNet:
             self.test()
         print("Time took {} seconds".format(time.time()-time_now))
 
+
 def main():
-    trainer = TrainNet()
-    trainer.run_training()
+    parser = argparse.ArgumentParser(description="Neural net for MNIST dataset training")
+    parser.add_argument("--model_path", type=str, help="Path to a previous model")
+    parser.add_argument("--optim_path", type=str, help="Path to previous optimizer")
+    parser.add_argument("--epochs", type=int, default=3, help="Number of epochs to run")
+    args = parser.parse_args()
+
+    trainer = TrainNet(**vars(args))
+    # trainer.run_training()
+    
 
 
 if __name__ == "__main__":
