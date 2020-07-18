@@ -6,6 +6,7 @@ import logging
 import random
 
 import cv2
+import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import torchvision
@@ -98,18 +99,7 @@ class TrainNet:
                                     ])),
         batch_size=self.batch_size_test, shuffle=True, num_workers=2)
 
-        test = enumerate(self.test_loader)
-        with torch.no_grad():
-            test_data = next(test)[1][0]
-            output = self.network(test_data)
-            rand_val = random.randint(0,1000)
-            print(output[rand_val].max(dim=0).indices.item())
-            img = test_data[rand_val].numpy().squeeze()
-            cv2.imshow("img", img)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-            
-        exit()
+
     def train(self, epoch):
         train_losses = []
         train_counter = []
@@ -159,15 +149,40 @@ class TrainNet:
         print("Time took {} seconds".format(time.time()-time_now))
 
 
+    def test_img(self):
+        test = iter(self.test_loader)
+        with torch.no_grad():
+            while 1:
+                test_data = next(test)[0]
+                for test_val in test_data:
+                    print(test_val.shape)
+                    output = self.network(test_val)
+                    rand_val = random.randint(0,1000)
+                    output_val = output[rand_val].max(dim=0).indices.item()
+                    img = test_data[rand_val].numpy().squeeze()
+                    blank = np.zeros((40, img.shape[1])).astype(np.float32)
+                    img = cv2.vconcat([img, blank])
+                    img = cv2.resize(img, (200,200))
+                    cv2.putText(img, str(output_val), (80,160), 0, 2, 255)
+                    cv2.imshow("img", img)
+                    k = cv2.waitKey(0)
+                    if k == ord('q'):
+                        cv2.destroyAllWindows()
+                    elif k == 27:
+                        break
+
 def main():
     parser = argparse.ArgumentParser(description="Neural net for MNIST dataset training")
     parser.add_argument("--model_path", type=str, help="Path to a previous model")
     parser.add_argument("--optim_path", type=str, help="Path to previous optimizer")
     parser.add_argument("--epochs", type=int, default=3, help="Number of epochs to run")
+    parser.add_argument("--save_data", type=str, required=True, help="Directory to save training and testing data")
+    parser.add_argument("--test_path", type=str, help="Path of images to test")
     args = parser.parse_args()
 
     trainer = TrainNet(**vars(args))
     # trainer.run_training()
+    trainer.test_img()
     
 
 
