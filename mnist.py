@@ -81,7 +81,7 @@ class TrainNet:
         torch.manual_seed(random_seed)
 
         self.train_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.MNIST('/home/jdiniso/Datasets/', train=True, download=True,
+        torchvision.datasets.MNIST('~/Datasets/', train=True, download=True,
                                     transform=torchvision.transforms.Compose([
                                     torchvision.transforms.ToTensor(),
                                     torchvision.transforms.Normalize(
@@ -90,7 +90,7 @@ class TrainNet:
         batch_size=self.batch_size_train, shuffle=True, num_workers=12)
 
         self.test_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.MNIST('/home/jdiniso/Datasets/', train=False, download=True,
+        torchvision.datasets.MNIST('~/Datasets/', train=False, download=True,
                                     transform=torchvision.transforms.Compose([
                                     torchvision.transforms.ToTensor(),
                                     torchvision.transforms.Normalize(
