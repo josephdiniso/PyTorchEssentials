@@ -4,6 +4,7 @@ import time
 import argparse
 import logging
 import random
+from PIL import Image
 
 import cv2
 import numpy as np
@@ -101,6 +102,11 @@ class TrainNet:
 
 
     def train(self, epoch):
+        """
+        Iterates through dataset and runs a forward pass in which the data is passed through the
+        model and an output is recorded. The loss and gradients of the model is calcualted through backpropagation
+        Then runs a backward pass and modifies the weights of the model
+        """
         train_losses = []
         train_counter = []
         self.network.train()
@@ -117,11 +123,14 @@ class TrainNet:
             train_losses.append(loss.item())
             train_counter.append(
                 (batch_idx*64) + ((epoch-1)*len(self.train_loader.dataset)))
-            torch.save(self.network.state_dict(), '/home/jdiniso/Models/mnist.pth')
-            torch.save(self.optimizer.state_dict(), '/home/jdiniso/Models/optimizer.pth')
+            torch.save(self.network.state_dict(), '/home/jdiniso/github/Models/mnist.pth')
+            torch.save(self.optimizer.state_dict(), '/home/jdiniso/github/Models/optimizer.pth')
 
 
     def test(self):
+        """
+        Used to calculate metrics of model per epoch
+        """
         test_losses = []
         test_counter = [i*len(self.train_loader.dataset) for i in range(self.n_epochs+1)]
         self.network.eval()
@@ -141,6 +150,9 @@ class TrainNet:
 
     
     def run_training(self):
+        """
+        Runs training over entire training dataset n times (epochs)
+        """
         time_now = time.time()
         self.test()
         for epoch in range(1, self.n_epochs + 1):
@@ -150,16 +162,19 @@ class TrainNet:
 
 
     def test_img(self):
+        """
+        Used to test model on testing dataset
+        """
         test = iter(self.test_loader)
         with torch.no_grad():
             while 1:
                 test_data = next(test)[0]
                 for test_val in test_data:
-                    print(test_val.shape)
+                    test_val = test_val.resize_((1,1,28,28))
+                    print(test_val)
                     output = self.network(test_val)
-                    rand_val = random.randint(0,1000)
-                    output_val = output[rand_val].max(dim=0).indices.item()
-                    img = test_data[rand_val].numpy().squeeze()
+                    output_val = output[0].max(dim=0).indices.item()
+                    img = test_val.numpy().squeeze()
                     blank = np.zeros((40, img.shape[1])).astype(np.float32)
                     img = cv2.vconcat([img, blank])
                     img = cv2.resize(img, (200,200))
@@ -168,8 +183,31 @@ class TrainNet:
                     k = cv2.waitKey(0)
                     if k == ord('q'):
                         cv2.destroyAllWindows()
+                        continue
                     elif k == 27:
-                        break
+                        cv2.destroyAllWindows()
+                        exit()
+    
+    
+    def test_sample(self):
+        """
+        Used to test model with save image 
+        """
+        transform=torchvision.transforms.Compose([
+                                    torchvision.transforms.ToTensor(),
+                                    torchvision.transforms.Normalize(
+                                        (0.1307,), (0.3081,))
+                                    ])
+        img_tensor = transform(Image.open("/home/jdiniso/Desktop/8.png")).numpy()
+        img_tensor = cv2.bitwise_not(img_tensor) 
+        img_tensor = torch.from_numpy(img_tensor).float()
+        img_tensor.resize_((1,1,28,28))
+
+        cv2.imshow('img', img_tensor.squeeze().numpy())
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        output = self.network(img_tensor)
+        print(torch.argmax(output))
 
 def main():
     parser = argparse.ArgumentParser(description="Neural net for MNIST dataset training")
@@ -182,10 +220,10 @@ def main():
 
     trainer = TrainNet(**vars(args))
     # trainer.run_training()
-    trainer.test_img()
+    # trainer.test_img()
+    trainer.test_sample()
     
 
 
 if __name__ == "__main__":
     main()
-
